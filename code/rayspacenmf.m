@@ -98,6 +98,6 @@ end
         beta, nIter, initQ, initW, initH, sourceNMFidx);
 
 % Estimation of the source images in the ray space.
-freqQ = permute(repmat(Q, 1,1,fLen), [3,1,2]);
-estimateImage = multinmf_recons_im(xRaySpace, freqQ, basisF, ...
+% freqQ = permute(repmat(Q, 1,1,fLen), [3,1,2]);
+estimateImage = multinmf_recons_im(xRaySpace, Q, basisF, ...
     activationF, sourceNMFidx);

@@ -32,11 +32,11 @@ function [Q, W, H, cost] = multinmf_inst_mu_beta(V, beta, n_iter, Q, W, H, part,
 % Available: http://www.irisa.fr/metiss/ozerov/Publications/OzerovFevotte_IEEE_TASLP10.pdf
 %
 % The code has been adapted to the beta-divergence cost function by
-% J. J. Carabias-Orti 
+% J. J. Carabias-Orti
 %
 % If you use this code please cite this paper
-% M. Pezzoli, J. J. Carabias-Orti, M. Cobos, F. Antonacci,and A. Sarti. 
-% "Ray-space-based multichannel nonnegative matrix factorization for audio 
+% M. Pezzoli, J. J. Carabias-Orti, M. Cobos, F. Antonacci,and A. Sarti.
+% "Ray-space-based multichannel nonnegative matrix factorization for audio
 % source separation". IEEE Signal Processing Letters (2021).
 % doi: 10.1109/LSP.2021.3055463
 
@@ -56,17 +56,16 @@ end
 [F,N,n_c] = size(V);
 n_s = size(Q,2);
 
+W = reshape(W,F,size(W,2)/n_s,n_s);
+H = permute(reshape(H',N,size(H,1)/n_s,n_s),[2 1 3]);
+
 %% Definitions %%
-V_ap    = zeros(F,N,n_c);
 cost    = zeros(1,n_iter);
 
 %% Compute app. variance structure V_ap %%
-for j=1:n_s
-    P_j = W(:,part{j}) * H(part{j},:);    
-    for i=1:n_c
-        V_ap(:,:,i) = V_ap(:,:,i) + Q(i,j) .* P_j;
-    end
-end
+P = tprod(W,[1 -1 3],H,[-1 2 3]);
+V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
+
 V(V == 0) = eps;
 if beta == 1
     cost(1) = sum(V(:).*log((V(:)./(V_ap(:)+eps))+eps)-V(:)+V_ap(:));
@@ -77,58 +76,47 @@ else
 end
 
 for iter = 2:n_iter
+    tic
     %%% Update Q %%%
     if switch_Q
-        for j=1:n_s  
-            P_j = W(:,part{j}) * H(part{j},:);            
-            for i=1:n_c
-                Q_old  = Q(i,j);
-                Q(i,j) = Q(i,j) * sum(sum(V_ap(:,:,i).^(beta-2).*P_j.*V(:,:,i))) / sum(sum(V_ap(:,:,i).^(beta-1) .* P_j));
-                V_ap(:,:,i) = V_ap(:,:,i) + (Q(i,j)-Q_old) .* P_j;                
-            end
-        end
+        Q_num = tprod(V_ap.^(beta-2).*V,[-1 -2 1],P,[-1 -2 2]);
+        Q_den = tprod(V_ap.^(beta-1),[-1 -2 1],P,[-1 -2 2]);
+        Q = Q.*(Q_num./(Q_den+eps));
+
+        Q(isnan(Q)) = 0;
+        Q(~isfinite(Q)) = 0;
+
+        V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
     end
 
     %%% Update W %%%
     if switch_W
-        for j=1:n_s
-            Kj   = length(part{j});
-            Wnum = zeros(F,Kj);
-            Wden = zeros(F,Kj);
-            for i=1:n_c
-                Wnum = Wnum + Q(i,j) * ((V_ap(:,:,i).^(beta-2) .* V(:,:,i)) * H(part{j},:)');
-                Wden = Wden + Q(i,j) * (V_ap(:,:,i).^(beta-1) * H(part{j},:)');
-            end
-            
-            Wj_old = W(:,part{j});
-            W(:,part{j}) = W(:,part{j}) .* (Wnum./Wden);
+        W_num = tprod(V_ap.^(beta-2).*V,[1 -1 4],H,[2 -1 3]);
+        W_num = tprod(Q,[-1 3],W_num,[1 2 3 -1]);
+        W_den = tprod(V_ap.^(beta-1),[1 -1 4],H,[2 -1 3]);
+        W_den = tprod(Q,[-1 3],W_den,[1 2 3 -1]);
+        W = W.*(W_num./(W_den+eps));
 
-            for i=1:n_c
-                V_ap(:,:,i) = V_ap(:,:,i) + Q(i,j) * ((W(:,part{j})-Wj_old)*H(part{j},:));
-            end
-        end
+        W(isnan(W)) = 0;
+        W(~isfinite(W)) = 0;
+
+        P = tprod(W,[1 -1 3],H,[-1 2 3]);
+        V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
     end
 
     %%% Update H %%%
     if switch_H
-        for j=1:n_s
-            Kj   = length(part{j});
-            Hnum = zeros(Kj,N);
-            Hden = zeros(Kj,N);
-            for i=1:n_c
-                Hnum = Hnum + (Q(i,j) * W(:,part{j})') * (V_ap(:,:,i).^(beta-2) .* V(:,:,i));
-                Hden = Hden + (Q(i,j) * W(:,part{j})') * V_ap(:,:,i).^(beta-1);
-            end
-            
-            Hj_old = H(part{j},:);
-            H(part{j},:) = H(part{j},:) .* (Hnum./Hden);
+        H_num = tprod(V_ap.^(beta-2).*V,[-1 2 4],W,[-1 1 3]);
+        H_num = tprod(Q,[-1 3],H_num,[1 2 3 -1]);
+        H_den = tprod(V_ap.^(beta-1),[-1 2 4],W,[-1 1 3]);
+        H_den = tprod(Q,[-1 3],H_den,[1 2 3 -1]);
+        H = H.*(H_num./(H_den+eps));
 
-            for i=1:n_c
-                V_ap(:,:,i) = V_ap(:,:,i) + Q(i,j) * (W(:,part{j})*(H(part{j},:)-Hj_old));
-            end
-            
-        end
+        H(isnan(H)) = 0;
+        H(~isfinite(H)) = 0;
 
+        P = tprod(W,[1 -1 3],H,[-1 2 3]);
+        V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
     end
 
     if beta == 1
@@ -139,25 +127,21 @@ for iter = 2:n_iter
         cost(iter) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) );
     end
 
-    %%% Normalize %%%    
-    
+    %%% Normalize %%%
+
     %% Scale Q / W %%
-    if switch_Q && switch_W               
+    if switch_Q && switch_W
         scale = sum(Q,1);
         Q = Q ./ repmat(scale,n_c,1);
-        for j=1:n_s
-            W(:,part{j}) = W(:,part{j}) * scale(j);
-        end
+        W = W .* permute(repmat(scale,F,1,size(W,2)),[1 3 2]);
     end
-    
+
     %% Scale W / H %%
     if switch_W && switch_H
         scale = sum(W,1);
-        W = W ./ repmat(scale ,F,1);
-        H = H .* repmat(scale',1,N);
+        W = W ./ repmat(scale ,F,1,1);
+        H = H .* permute(repmat(scale,N,1,1),[2 1 3]);
     end
-
+    toc
 end
 fprintf('MU %d cost: %.4f -> %.4f\n', n_iter, cost(2), cost(iter));
-
-

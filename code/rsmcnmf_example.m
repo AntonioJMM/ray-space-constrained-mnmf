@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% RS-MNMF example                                                         
+% RS-MNMF example
 % Ray-Space-Based Multichannel Nonnegative Matrix Factorization for Audio
 % Source Separation.
 % This script shows an example of audio source separation using the
@@ -12,8 +12,8 @@
 % version 3 (http://www.gnu.org/licenses/gpl.txt)
 %
 % If you use this code please cite this paper
-% M. Pezzoli, J. J. Carabias-Orti, M. Cobos, F. Antonacci,and A. Sarti. 
-% "Ray-space-based multichannel nonnegative matrix factorization for audio 
+% M. Pezzoli, J. J. Carabias-Orti, M. Cobos, F. Antonacci,and A. Sarti.
+% "Ray-space-based multichannel nonnegative matrix factorization for audio
 % source separation". IEEE Signal Processing Letters (2021).
 % doi: 10.1109/LSP.2021.3055463
 
@@ -48,7 +48,7 @@ micPos = [zeros(nMic,1), z];            % mic position in 2D
 mubar = 0.06;       % m axis sampling interval
 D = 4;             % length of m axis
 nubar = 4*d;        % nu axis sampling interval
-sigma = 8*d;        % gaussian window standard deviation
+sigma = 16*d;        % gaussian window standard deviation
 mu = ((0:mubar:(D-1)*mubar)-((D-1)/2*mubar))';          % [D,1] mu axis
 nu = (0:nubar:micPos(end,end))';                        % [L,1] nu axis
 t = 1:nMic;
@@ -61,7 +61,7 @@ sourceNMFidx = cell(1,sourceN);
 for iSrc = 1:sourceN
     sourceNMFidx{iSrc} = (1:nBasisSource) + (iSrc-1)*nBasisSource;
 end
-nIter = 100;
+nIter = 200;
 beta = 0.9;
 
 % Source parameters
@@ -74,7 +74,8 @@ sourcePath = ['..' filesep 'data' filesep 'audio' filesep, sourceType];
 
 load(sourceLocationFile) % Load the location of the sources from disk
 % Randomly choose N sources from the dataset
-sourceLabel = randperm(9,sourceN);
+% sourceLabel = randperm(9,sourceN);
+sourceLabel = [1 5 9];
 sourcePosition = sourceLocation(sourceLabel, :);
 
 %% Geometric setup
@@ -99,38 +100,38 @@ micSignal = zeros((signalLen+1)*fs, nMic);
 sourceSignal = zeros((signalLen+1)*fs, sourceN);    % Source signal in time
 
 for ss = 1:sourceN
-   rirFile = [rirPath, filesep, 'rir_source_', ...
-       num2str(sourceLabel(ss)), '.wav'];
-   [rir, rirFs] = audioread(rirFile);
-   sourceFile = [sourcePath, filesep, num2str(ss), '.wav'];
-   [tmp, srcFs] = audioread(sourceFile);
-   
-   start = find(tmp > 0.8 * var(tmp), 1 );  % Threshold 
-   stop = start + srcFs * signalLen;
-   tmp = tmp(start:stop-1, 1);
-   tmp = resample(tmp, rirFs, srcFs);   % resampling the signal
-   tmp = tmp ./max(abs(tmp(:)));
-   
-   
-   for mm = 1:nMic
-       impResp = rir(:,mm);
-       impResp = impResp(1:rirSamp);               % rir shortening
-       currentSignal = conv(tmp, impResp);
-       currentSignal = resample(currentSignal, fs, rirFs);  % Resample signal
-       zeroPad = (signalLen+1)*fs - length(currentSignal);
-       currentSignal = [currentSignal; zeros(zeroPad,1)];
-       micSignal(:,mm) = micSignal(:,mm) + currentSignal;
-       referenceSignal{ss}(:,mm) = currentSignal;
-       referenceSTFT{ss}(:,:,mm) = stft(currentSignal, analysisWin, ...
-           hop, nfft, fs);
-   end
-   sourceTemp = resample(tmp,fs,rirFs);
-   sourceSignal(:,ss) = [sourceTemp; zeros(fs, 1)];
+    rirFile = [rirPath, filesep, 'rir_source_', ...
+        num2str(sourceLabel(ss)), '.wav'];
+    [rir, rirFs] = audioread(rirFile);
+    sourceFile = [sourcePath, filesep, num2str(ss), '.wav'];
+    [tmp, srcFs] = audioread(sourceFile);
+
+    start = find(tmp > 0.8 * var(tmp), 1 );  % Threshold
+    stop = start + srcFs * signalLen;
+    tmp = tmp(start:stop-1, 1);
+    tmp = resample(tmp, rirFs, srcFs);   % resampling the signal
+    tmp = tmp ./max(abs(tmp(:)));
+
+
+    for mm = 1:nMic
+        impResp = rir(:,mm);
+        impResp = impResp(1:rirSamp);               % rir shortening
+        currentSignal = conv(tmp, impResp);
+        currentSignal = resample(currentSignal, fs, rirFs);  % Resample signal
+        zeroPad = (signalLen+1)*fs - length(currentSignal);
+        currentSignal = [currentSignal; zeros(zeroPad,1)];
+        micSignal(:,mm) = micSignal(:,mm) + currentSignal;
+        referenceSignal{ss}(:,mm) = currentSignal;
+        referenceSTFT{ss}(:,:,mm) = stft(currentSignal, analysisWin, ...
+            hop, nfft, fs);
+    end
+    sourceTemp = resample(tmp,fs,rirFs);
+    sourceSignal(:,ss) = [sourceTemp; zeros(fs, 1)];
 end
 
 for mm = 1:nMic
-     [micSTFT(:,:,mm), fAx, tAx] = stft(micSignal(:,mm), analysisWin, ...
-         hop, nfft, fs);
+    [micSTFT(:,:,mm), fAx, tAx] = stft(micSignal(:,mm), analysisWin, ...
+        hop, nfft, fs);
 end
 tLen = length(tAx);         % Length of time axis
 fLen = nfft/2+1;            % Length of frequency axis
@@ -138,7 +139,7 @@ fLen = nfft/2+1;            % Length of frequency axis
 %% Source separation through RS-MCNMF
 
 % Ray-Space-Transformed reference signals
-raySpaceRef = cell(sourceN,1);  
+raySpaceRef = cell(sourceN,1);
 % Source signal estimate based on basis and activation functions
 sourceRecSTFT = cell(sourceN,1);
 sourceRec = cell(1, sourceN);
@@ -153,13 +154,18 @@ init.initA = 0.5 * (1.9 * abs(randn(nMic, sourceN)) + ...
 init.initW = 0.5 * (abs(randn(fLen,nBasis)) + ones(fLen,nBasis)) .* ...
     (psdMix * ones(1,nBasis));
 init.initH = 0.5 * (abs(randn(nBasis,tLen)) + ones(nBasis,tLen));
-init.initQ = abs(init.initA).^2;
+% init.initQ = abs(init.initA).^2;
+init.initQ = (0.5 * (1.9 * abs(randn(D*length(nu), sourceN)) + ...
+    0.1 * ones(D*length(nu), sourceN))).^2;
 
 % Source separation using MCNMF in the ray space
 [estimateImage, Q, basisF, activationF, xRaySpace, psi, ...
     invPsi, initQ, cost] = rayspacenmf(micSTFT, mubar, D, nubar, sigma, fAx, ...
     d, nMic, c, sourceN, nBasisSource,...
     nIter, tik, init,beta);
+
+basisF = reshape(basisF,size(basisF,1),size(basisF,2)*size(basisF,3));
+activationF = reshape(permute(activationF,[2 1 3]),size(activationF,2),size(activationF,1)*size(activationF,3))';
 
 % Ray space reference and estimate
 for ss = 1:sourceN
@@ -234,14 +240,14 @@ end
 % xlabel('Time [s]'), ylabel('Ray space point t');
 % colorbar
 % title('Estimated Ray Space source 1 image');
-% 
+%
 % subplot(2,2,4)
 % imagesc(tAx, t, estRay2, [minC, maxC])
 % xlabel('Time [s]'), ylabel('Ray space point t');
 % colorbar
 % title('Estimated Ray Space source 2 image');
 
-%% Estimated source image at the microphone 
+%% Estimated source image at the microphone
 fprintf('RS-MCNMF estimated source image at the microphones...\n');
 istftParams.analysisWin = analysisWin;
 istftParams.synthesisWin = synthesisWin;
@@ -254,9 +260,9 @@ rsmcnmfEstimate = arraysignalreconstruction(estimateImage, ...
 
 % Dummy variables for bss_eval
 % Matrix of the reference signals
-ref = cat(3, referenceSignal{:});      
+ref = cat(3, referenceSignal{:});
 % Matrix of the estimates given by the RS-MCNMF
-est = cat(3, rsmcnmfEstimate{:});     
+est = cat(3, rsmcnmfEstimate{:});
 
 raySDR = zeros(nMic,sourceN);
 raySIR = zeros(nMic,sourceN);
@@ -293,45 +299,4 @@ for ss = 1:sourceN
     soundsc(rsmcnmfEstimate{ss}(:,micIdx), fs)
     pause(length(rsmcnmfEstimate{ss}(:,micIdx))/fs);
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
