@@ -42,8 +42,8 @@ function [estimateImage, Q, basisF, activationF, xRaySpace, psi, invPsi, initQ, 
 % version 3 (http://www.gnu.org/licenses/gpl.txt)
 %
 % If you use this code please cite this paper
-% M. Pezzoli, J. J. Carabias-Orti, M. Cobos, F. Antonacci,and A. Sarti. 
-% "Ray-space-based multichannel nonnegative matrix factorization for audio 
+% M. Pezzoli, J. J. Carabias-Orti, M. Cobos, F. Antonacci,and A. Sarti.
+% "Ray-space-based multichannel nonnegative matrix factorization for audio
 % source separation". IEEE Signal Processing Letters (2021).
 % doi: 10.1109/LSP.2021.3055463
 
@@ -81,10 +81,12 @@ if isempty(init)
         (psdMix * ones(1,nBasis));
     initH = 0.5 * (abs(randn(nBasis,tLen)) + ones(nBasis,tLen));
     initQ = abs(initA).^2;
+    initM = init.initM;
 else
     initW = init.initW;
     initH = init.initH;
     initQ = init.initQ;
+    initM = init.initM;
 end
 
 if nargin < 15
@@ -94,10 +96,10 @@ elseif isempty(beta)
 end
 
 % Multichannel Nonnegative Matrix Factorization
-[Q, basisF, activationF, cost] = multinmf_inst_mu_beta(abs(xRaySpace).^2, ...
-        beta, nIter, initQ, initW, initH, sourceNMFidx);
+[M, Q, basisF, activationF, cost] = multinmf_inst_mu_beta(abs(xRaySpace).^2, ...
+    beta, nIter, initQ, initW, initH, initM);
 
 % Estimation of the source images in the ray space.
 % freqQ = permute(repmat(Q, 1,1,fLen), [3,1,2]);
-estimateImage = multinmf_recons_im(xRaySpace, Q, basisF, ...
+estimateImage = multinmf_recons_im(xRaySpace, M, Q, basisF, ...
     activationF, sourceNMFidx);

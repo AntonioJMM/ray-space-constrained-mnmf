@@ -26,33 +26,59 @@ fprintf('Setup...\n');
 addpath(genpath('..'))
 
 % General parameters
-fs = 8000;      % Sampling frequency [Hz]
-c = 340;        % Speed of sound [m/s]
-sourceN = 3;    % Number of sources
-signalLen = 3;    % Length of the source signal
+fs = 8000;                                          % Sampling frequency [Hz]
+c = 340;                                            % Speed of sound [m/s]
+sourceN = 3;                                        % Number of sources
+signalLen = 3;                                      % Length of the source signal
 
 % STFT parameters
-winLength = 256;        % Window length in samples
+winLength = 256;                                    % Window length in samples
 analysisWin = hamming(winLength,'periodic');
 synthesisWin = hamming(winLength,'periodic');
-hop = winLength / 4;    % Hop size (75% overlap)
+hop = winLength / 4;                                % Hop size (75% overlap)
 nfft = 2*2^nextpow2(winLength);
+fmin = 0;                                           % Minimum frequency for processing
+fmax = 4000;                                        % Maximum frequency for processing
+
+% Dictionary parameters
+fbinsep = fs/nfft;
+fbins = (0:round(nfft/2))*fs/nfft;
+minbin = round(fmin/fbinsep + 1);
+maxbin = round(fmax/fbinsep + 1);
+kbins = 2*pi*fbins ./ c;
+mybins = minbin:maxbin;
+nbins = maxbin-minbin+1;
 
 % ULA parameters
-d = 0.03;           % Distance between two adjacent microphones
-nMic = 32;          % Number of microphones
-z = (0:d:d*(nMic-1))';                 % mic y coordinate
-micPos = [zeros(nMic,1), z];            % mic position in 2D
+d = 0.03;                                           % Distance between two adjacent microphones
+nMic = 32;                                          % Number of microphones
+z = (0:d:d*(nMic-1))';                              % mic y coordinate
+micPos = [zeros(nMic,1), z];                        % mic position in 2D
 
 % Ray Space Transform parameters
-mubar = 0.06;       % m axis sampling interval
-D = 4;             % length of m axis
-nubar = 4*d;        % nu axis sampling interval
-sigma = 16*d;        % gaussian window standard deviation
-mu = ((0:mubar:(D-1)*mubar)-((D-1)/2*mubar))';          % [D,1] mu axis
-nu = (0:nubar:micPos(end,end))';                        % [L,1] nu axis
+mubar = 0.06;                                       % m axis sampling interval
+D = 40;                                             % Length of m axis
+nubar = 8*d;                                        % nu axis sampling interval
+sigma = 16*d;                                       % Gaussian window standard deviation
+mu = ((0:mubar:(D-1)*mubar)-((D-1)/2*mubar))';      % [D,1] mu axis
+nu = (0:nubar:micPos(end,end))';                    % [L,1] nu axis
 t = 1:nMic;
-tik = 0.5;          % Regularization parameter for the psiTilde
+tik = 0.5;                                          % Regularization parameter for the psiTilde
+
+% Point grid parameters
+gridPx = [1.2 0.891 0.623 0.331];%linspace(-1,2,10);
+gridPy = [1 0.783 0.442 0.086 -0.2];%linspace(0.5,5,5);
+[XX, YY] = meshgrid(gridPx, gridPy);
+gridPts = [XX(:), YY(:)]';
+
+figure
+scatter(micPos(:,1), micPos(:,2), 'filled')
+hold on
+scatter(gridPts(1,:), gridPts(2,:), 'x')
+text(gridPts(1,:)+0.01, gridPts(2,:)+0.01, num2cell(1:length(gridPts)));
+xlabel('x'); ylabel('y');
+axis equal;
+title('Setup');
 
 % MNMF parameters
 nBasisSource = 12;
@@ -61,18 +87,18 @@ sourceNMFidx = cell(1,sourceN);
 for iSrc = 1:sourceN
     sourceNMFidx{iSrc} = (1:nBasisSource) + (iSrc-1)*nBasisSource;
 end
-nIter = 200;
+nIter = 500;
 beta = 0.9;
 
 % Source parameters
-sourceType = 'male'; % male/female/music
+sourceType = 'music';                                % male/female/music
 
 % Directory where the impulse resposes are stored
 rirPath = ['..' filesep 'data' filesep 'sources'];
 sourceLocationFile = [rirPath, filesep, 'source_location.mat'];
 sourcePath = ['..' filesep 'data' filesep 'audio' filesep, sourceType];
 
-load(sourceLocationFile) % Load the location of the sources from disk
+load(sourceLocationFile)                            % Load the location of the sources from disk
 % Randomly choose N sources from the dataset
 % sourceLabel = randperm(9,sourceN);
 sourceLabel = [1 5 9];
@@ -88,6 +114,18 @@ text(sourcePosition(:,1)+0.05, sourcePosition(:,2), ...
     cellstr(strsplit(num2str(sourceLabel))))
 title('Setup'), xlim([-0.1, 3.8]), grid on
 legend('Mics', 'Sources')
+
+%% RST computation
+psi = rayspacetransformmatrix(fbins(mybins),c,d,length(micPos),mubar,D,nubar,sigma);
+I = size(psi, 1);                       % Number of Ray space data points
+
+dist = pdist2(micPos, gridPts');        % Source microphones distances
+for ss = 1:length(gridPts)
+    % Microphone signals (e.g. free-field Green's Function)
+    greenF(ss, :,:) = (exp(-1i*2*pi*fbins(mybins)/c .*dist(:,ss)) ./ (4*pi*dist(:,ss))).';  
+    % RST computation --> [greenFRaySpace] = [mybins, IxD, gridPts]
+    greenFRaySpace(:,:,ss) = squeeze(spatialfilter(permute(greenF(ss, :,:), [2,1,3]), psi,false));
+end
 
 %% Microphone array signals
 fprintf('Compute the array signal...\n');
@@ -155,8 +193,11 @@ init.initW = 0.5 * (abs(randn(fLen,nBasis)) + ones(fLen,nBasis)) .* ...
     (psdMix * ones(1,nBasis));
 init.initH = 0.5 * (abs(randn(nBasis,tLen)) + ones(nBasis,tLen));
 % init.initQ = abs(init.initA).^2;
-init.initQ = (0.5 * (1.9 * abs(randn(D*length(nu), sourceN)) + ...
-    0.1 * ones(D*length(nu), sourceN))).^2;
+% init.initQ = (0.5 * (1.9 * abs(randn(D*length(nu), sourceN)) + ...
+%     0.1 * ones(D*length(nu), sourceN))).^2;
+init.initQ = rand(size(greenFRaySpace,3), sourceN) + 1;
+init.initM = abs(greenFRaySpace);
+
 
 % Source separation using MCNMF in the ray space
 [estimateImage, Q, basisF, activationF, xRaySpace, psi, ...

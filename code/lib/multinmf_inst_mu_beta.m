@@ -1,4 +1,4 @@
-function [Q, W, H, cost] = multinmf_inst_mu_beta(V, beta, n_iter, Q, W, H, part, switch_Q, switch_W, switch_H)
+function [M, Q, W, H, cost] = multinmf_inst_mu_beta(V, beta, n_iter, Q, W, H, M, switch_Q, switch_W, switch_H)
 
 % Multichannel NMF minimizing Itakura-Saito divergence through multiplicative updates
 % with linear instantaneous mixing
@@ -64,7 +64,8 @@ cost    = zeros(1,n_iter);
 
 %% Compute app. variance structure V_ap %%
 P = tprod(W,[1 -1 3],H,[-1 2 3]);
-V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
+MQ = tprod(Q,[-1 3],M,[1 2 -1]);
+V_ap = tprod(MQ,[1 3 -1],P,[1 2 -1]);
 
 V(V == 0) = eps;
 if beta == 1
@@ -72,51 +73,54 @@ if beta == 1
 elseif beta==0
     cost(1) = sum((V(:)./(V_ap(:)+eps)) - log((V(:)./(V_ap(:)+eps))+eps)-1);
 else
-    cost(1) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) );
+    cost(1) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) + 500*sum(sum(Q'*Q - trace(Q'*Q))));
 end
 
 for iter = 2:n_iter
     tic
     %%% Update Q %%%
     if switch_Q
-        Q_num = tprod(V_ap.^(beta-2).*V,[-1 -2 1],P,[-1 -2 2]);
-        Q_den = tprod(V_ap.^(beta-1),[-1 -2 1],P,[-1 -2 2]);
-        Q = Q.*(Q_num./(Q_den+eps));
+        Q_num = tprod(permute(V_ap.^(beta-2).*V,[3 1 2]),[-1 1 2],permute(M,[2 1 3]),[-1 1 3]);
+        Q_num = tprod(P,[-1 -2 2],Q_num,[-1 -2 1]);
+        Q_den = tprod(permute(V_ap.^(beta-1),[3 1 2]),[-1 1 2],permute(M,[2 1 3]),[-1 1 3]);
+        Q_den = tprod(P,[-1 -2 2],Q_den,[-1 -2 1]);
+        Q = Q.*((Q_num + 500*Q)./(Q_den + 500*ones(size(Q,1),size(Q,1))*Q + eps));
 
         Q(isnan(Q)) = 0;
         Q(~isfinite(Q)) = 0;
 
-        V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
+        MQ = tprod(Q,[-1 3],M,[1 2 -1]);
+        V_ap = tprod(MQ,[1 3 -1],P,[1 2 -1]);
     end
 
     %%% Update W %%%
     if switch_W
         W_num = tprod(V_ap.^(beta-2).*V,[1 -1 4],H,[2 -1 3]);
-        W_num = tprod(Q,[-1 3],W_num,[1 2 3 -1]);
+        W_num = tprod(MQ,[1 -1 3],W_num,[1 2 3 -1]);
         W_den = tprod(V_ap.^(beta-1),[1 -1 4],H,[2 -1 3]);
-        W_den = tprod(Q,[-1 3],W_den,[1 2 3 -1]);
+        W_den = tprod(MQ,[1 -1 3],W_den,[1 2 3 -1]);
         W = W.*(W_num./(W_den+eps));
 
         W(isnan(W)) = 0;
         W(~isfinite(W)) = 0;
 
         P = tprod(W,[1 -1 3],H,[-1 2 3]);
-        V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
+        V_ap = tprod(MQ,[1 3 -1],P,[1 2 -1]);
     end
 
     %%% Update H %%%
     if switch_H
-        H_num = tprod(V_ap.^(beta-2).*V,[-1 2 4],W,[-1 1 3]);
-        H_num = tprod(Q,[-1 3],H_num,[1 2 3 -1]);
-        H_den = tprod(V_ap.^(beta-1),[-1 2 4],W,[-1 1 3]);
-        H_den = tprod(Q,[-1 3],H_den,[1 2 3 -1]);
+        H_num = tprod(V_ap.^(beta-2).*V,[1 2 -1],MQ,[1 -1 3]);
+        H_num = tprod(W,[-1 1 3],H_num,[-1 2 3]);
+        H_den = tprod(V_ap.^(beta-1),[1 2 -1],MQ,[1 -1 3]);
+        H_den = tprod(W,[-1 1 3],H_den,[-1 2 3]);
         H = H.*(H_num./(H_den+eps));
 
         H(isnan(H)) = 0;
         H(~isfinite(H)) = 0;
 
         P = tprod(W,[1 -1 3],H,[-1 2 3]);
-        V_ap = tprod(Q,[3 -1],P,[1 2 -1]);
+        V_ap = tprod(MQ,[1 3 -1],P,[1 2 -1]);
     end
 
     if beta == 1
@@ -124,24 +128,24 @@ for iter = 2:n_iter
     elseif beta==0
         cost(iter) = sum((V(:)./(V_ap(:)+eps)) - log((V(:)./(V_ap(:)+eps))+eps)-1);
     else
-        cost(iter) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) );
+        cost(iter) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) ) + 500*sum(sum(Q'*Q - trace(Q'*Q)));
     end
 
     %%% Normalize %%%
 
-    %% Scale Q / W %%
-    if switch_Q && switch_W
-        scale = sum(Q,1);
-        Q = Q ./ repmat(scale,n_c,1);
-        W = W .* permute(repmat(scale,F,1,size(W,2)),[1 3 2]);
-    end
-
-    %% Scale W / H %%
-    if switch_W && switch_H
-        scale = sum(W,1);
-        W = W ./ repmat(scale ,F,1,1);
-        H = H .* permute(repmat(scale,N,1,1),[2 1 3]);
-    end
+%     %% Scale Q / W %%
+%     if switch_Q && switch_W
+%         scale = sum(Q,1);
+%         Q = Q ./ repmat(scale,n_c,1);
+%         W = W .* permute(repmat(scale,F,1,size(W,2)),[1 3 2]);
+%     end
+% 
+%     %% Scale W / H %%
+%     if switch_W && switch_H
+%         scale = sum(W,1);
+%         W = W ./ repmat(scale ,F,1,1);
+%         H = H .* permute(repmat(scale,N,1,1),[2 1 3]);
+%     end
     toc
 end
 fprintf('MU %d cost: %.4f -> %.4f\n', n_iter, cost(2), cost(iter));

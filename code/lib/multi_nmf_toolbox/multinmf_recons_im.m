@@ -1,4 +1,4 @@
-function Im = multinmf_recons_im(X,Q,W,H,part)
+function Im = multinmf_recons_im(X,M,Q,W,H,part)
 
 %
 % Reconstructs source images from multi-nmf factorization (conservative)
@@ -35,6 +35,8 @@ function Im = multinmf_recons_im(X,Q,W,H,part)
 n_s = size(Q,3);
 
 P = tprod(W,[1 -1 3],H,[-1 2 3]);
-QP = tprod(Q,[3 4],P,[1 2 4]);
-Im = permute(QP ./ repmat(sum(QP,4),1,1,1,n_s) .* repmat(X,1,1,1,n_s),[1 2 4 3]);
+MQ = tprod(Q,[-1 3],M,[1 2 -1]);
+MQP = tprod(MQ,[1 3 4],P,[1 2 4]);
+
+Im = permute(MQP ./ repmat(sum(MQP,4),1,1,1,n_s) .* repmat(X,1,1,1,n_s),[1 2 4 3]);
 end
