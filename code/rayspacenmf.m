@@ -1,4 +1,4 @@
-function [estimateImage, Q, basisF, activationF, xRaySpace, psi, invPsi, initQ, cost] = rayspacenmf(micSTFT, muBar, D, nuBar, sigma, fAx, d, nMic, c, sourceN, nBasisSource,...
+function [estimateImage, Q, basisF, activationF, xRaySpace, invPsi, initQ, cost] = rayspacenmf(micSTFT, muBar, D, nuBar, sigma, fAx, psi, d, nMic, c, sourceN, nBasisSource,...
     nIter, tik, init, beta)
 % rayspacenmf
 % This function performs the source separation using the Ray-Space-Based
@@ -58,7 +58,7 @@ end
 %% Ray space projection
 fprintf('RaySpace transform...\n');
 % Ray space transformation matrix
-psi = rayspacetransformmatrix(fAx,c,d,nMic,muBar,D,nuBar,sigma);
+% psi = rayspacetransformmatrix(fAx,c,d,nMic,muBar,D,nuBar,sigma);
 I = size(psi, 1);        % Number of Ray space data points
 
 invPsi = zeros(size(psi,2),size(psi,1),fLen);

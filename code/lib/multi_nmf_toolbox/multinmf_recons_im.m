@@ -32,7 +32,7 @@ function Im = multinmf_recons_im(X,M,Q,W,H,part)
 % Available: http://www.irisa.fr/metiss/ozerov/Publications/OzerovFevotte_IEEE_TASLP10.pdf
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-n_s = size(Q,3);
+n_s = size(Q,2);
 
 P = tprod(W,[1 -1 3],H,[-1 2 3]);
 MQ = tprod(Q,[-1 3],M,[1 2 -1]);
