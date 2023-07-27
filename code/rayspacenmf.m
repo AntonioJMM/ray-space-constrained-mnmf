@@ -77,8 +77,8 @@ if isempty(init)
     initA = 0.5 * (1.9 * abs(randn(I, sourceN)) + ...
         0.1 * ones(I, sourceN));
     % W is intialized so that its enegy follows mixture PSD
-    initW = 0.5 * (abs(randn(fLen,nBasis)) + ones(fLen,nBasis)) .* ...
-        (psdMix * ones(1,nBasis));
+    initW = 0.5 * (abs(randn(fLen,nBasis)) + ones(fLen,nBasis));% .* ...
+        %(psdMix * ones(1,nBasis));
     initH = 0.5 * (abs(randn(nBasis,tLen)) + ones(nBasis,tLen));
     initQ = abs(initA).^2;
     initM = init.initM;

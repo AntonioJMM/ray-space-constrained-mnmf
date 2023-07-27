@@ -146,6 +146,7 @@ for iter = 2:n_iter
 %         W = W ./ repmat(scale ,F,1,1);
 %         H = H .* permute(repmat(scale,N,1,1),[2 1 3]);
 %     end
-    toc
+    t = toc;
+    fprintf('Iter: %3.0d -- Cost: %6.1f -- Time %.4f\n', iter, cost(iter), t);
 end
 fprintf('MU %d cost: %.4f -> %.4f\n', n_iter, cost(2), cost(iter));

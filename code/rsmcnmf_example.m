@@ -75,9 +75,10 @@ D = 15;                                             % Length of m axis
 nubar = 4*d;                                        % nu axis sampling interval
 sigma = 16*d;                                       % Gaussian window standard deviation
 mu = ((0:mubar:(D-1)*mubar)-((D-1)/2*mubar))';      % [D,1] mu axis
-nu = (0:nubar:micPos(end,end))';                    % [L,1] nu axis
+nu = (0:nubar:micPos(2,end))';                    % [L,1] nu axis
 t = 1:nMic;
-tik = 0.5;                                          % Regularization parameter for the psiTilde
+tik = 8.5;                                          % Regularization parameter for the psiTilde
+% load('tik.mat');
 
 % =========================================================================
 % MNMF parameters
@@ -93,7 +94,7 @@ beta = 0.9;
 % =========================================================================
 % Source parameters
 % select num points based on the gridPts
-source.pos = [gridPts(:, 43), gridPts(:, 48)];  % [3 x sourceN]
+source.pos = [gridPts(:, 58), gridPts(:, 56)];  % [3 x sourceN]
 
 source.sourceN = size(source.pos, 2);
 source.type = {'o'};
@@ -161,7 +162,9 @@ for mm = 1:nMic
     % convolution with signal
     for ss =1:source.sourceN
         referenceSignal{ss}(:,mm) = conv(sourceSignal(:,ss), squeeze(h(ss,mm,:)));
-        referenceSTFT{ss}(:,:,mm) = stft(referenceSignal{ss}(:,mm), analysisWin, hop, nfft, fs);
+        tmp = stft(referenceSignal{ss}(:,mm), analysisWin, hop, nfft, fs);
+        tmp([1:7 170:end],:) = 0;
+        referenceSTFT{ss}(:,:,mm) = tmp;
     end
 end
 
@@ -172,7 +175,9 @@ for ss = 1:source.sourceN
 end
 
 for mm = 1:nMic
-    [micSTFT(:,:,mm), fAx, tAx] = stft(micSignal(:,mm), analysisWin, hop, nfft, fs);
+    [tmp,fAx, tAx] = stft(micSignal(:,mm), analysisWin, hop, nfft, fs);
+    tmp([1:7 170:end],:) = 0;
+    micSTFT(:,:,mm) = tmp;
 end
 
 tLen = length(tAx);         % Length of time axis
@@ -193,8 +198,8 @@ psdMix = 0.5 * (mean(abs(micSTFT(:,:,1)).^2 + abs(micSTFT(:,:,2)).^2, 2));
 init.initA = 0.5 * (1.9 * abs(randn(nMic, sourceN)) + ...
     0.1 * ones(nMic, sourceN));
 % W is intialized so that its enegy follows mixture PSD
-init.initW = 0.5 * (abs(randn(fLen,nBasis)) + ones(fLen,nBasis)) .* ...
-    (psdMix * ones(1,nBasis));
+init.initW = 0.5 * (abs(randn(fLen,nBasis)) + ones(fLen,nBasis));% .* ...
+%     (psdMix * ones(1,nBasis));
 init.initH = 0.5 * (abs(randn(nBasis,tLen)) + ones(nBasis,tLen));
 % init.initQ = abs(init.initA).^2;
 % init.initQ = (0.5 * (1.9 * abs(randn(D*length(nu), sourceN)) + ...
@@ -315,7 +320,7 @@ raySIR = zeros(nMic,sourceN);
 raySAR = zeros(nMic,sourceN);
 
 for mm = 1:nMic
-    [raySDR(mm,:), raySIR(mm,:), raySAR(mm,:)] = bss_eval_sources( ...
+    [raySDR(mm,:), raySIR(mm,:), raySAR(mm,:),perm(mm,:)] = bss_eval_sources( ...
         squeeze(est(:,mm,:)).', squeeze(ref(:,mm,:)).');
 end
 
