@@ -55,6 +55,8 @@ end
 
 [F,N,n_c] = size(V);
 n_s = size(Q,2);
+lambda = 16;
+% lambda = 0;
 
 W = reshape(W,F,size(W,2)/n_s,n_s);
 H = permute(reshape(H',N,size(H,1)/n_s,n_s),[2 1 3]);
@@ -73,7 +75,7 @@ if beta == 1
 elseif beta==0
     cost(1) = sum((V(:)./(V_ap(:)+eps)) - log((V(:)./(V_ap(:)+eps))+eps)-1);
 else
-    cost(1) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) + 500*sum(sum(Q'*Q - trace(Q'*Q))));
+    cost(1) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) + lambda*sum(sum(Q'*Q - trace(Q'*Q))));
 end
 
 for iter = 2:n_iter
@@ -84,7 +86,7 @@ for iter = 2:n_iter
         Q_num = tprod(P,[-1 -2 2],Q_num,[-1 -2 1]);
         Q_den = tprod(permute(V_ap.^(beta-1),[3 1 2]),[-1 1 2],permute(M,[2 1 3]),[-1 1 3]);
         Q_den = tprod(P,[-1 -2 2],Q_den,[-1 -2 1]);
-        Q = Q.*((Q_num + 500*Q)./(Q_den + 500*ones(size(Q,1),size(Q,1))*Q + eps));
+        Q = Q.*((Q_num + lambda*Q)./(Q_den + lambda*ones(size(Q,1),size(Q,1))*Q + eps));
 
         Q(isnan(Q)) = 0;
         Q(~isfinite(Q)) = 0;
@@ -128,7 +130,7 @@ for iter = 2:n_iter
     elseif beta==0
         cost(iter) = sum((V(:)./(V_ap(:)+eps)) - log((V(:)./(V_ap(:)+eps))+eps)-1);
     else
-        cost(iter) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) ) + 500*sum(sum(Q'*Q - trace(Q'*Q)));
+        cost(iter) = 1/(beta*(beta-1)) * sum( V(:).^beta + ((beta-1)*V_ap(:).^beta) - (beta*V(:).*(V_ap(:).^(beta-1))) ) + lambda*sum(sum(Q'*Q - trace(Q'*Q)));
     end
 
     %%% Normalize %%%

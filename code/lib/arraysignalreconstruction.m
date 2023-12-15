@@ -49,20 +49,20 @@ for ss = 1:sourceN
     for mm = 1:nMic
         aux = istft(sTilde{ss}(:,:,mm), ...
             analysisWin, synthesisWin, hop, nfft, fs);
-        %         [auxAligned, referenceAligned] = ...
-        %             alignsignals(aux, referenceSignal{ss}(:,mm));
-        %         if length(auxAligned) < signalLen
-        %             diff = signalLen - length(auxAligned);
-        %             auxAligned = [auxAligned, zeros(1, diff)];
-        %         end
-        %         estimatedSignal{ss}(:,mm) = auxAligned(1:signalLen).';
+        [auxAligned, referenceAligned] = ...
+            alignsignals(aux, referenceSignal{ss}(:,mm));
+        if length(auxAligned) < signalLen
+            diff = signalLen - length(auxAligned);
+            auxAligned = [auxAligned, zeros(1, diff)];
+        end
+        % estimatedSignal{ss}(:,mm) = auxAligned(1:signalLen).';
 
-        estimatedSignal{ss}(:,mm) = aux;
-        nmse{ss}(mm) = 0;
+                estimatedSignal{ss}(:,mm) = aux;
+                nmse{ss}(mm) = 0;
 
-        %         nmse{ss}(mm) = NMSE(estimatedSignal{ss}(:,mm) ./ ...
-        %             max(estimatedSignal{ss}(:,mm)), ...
-        %             referenceAligned(1:signalLen) ./...
-        %             max(referenceAligned(1:signalLen)));
+        % nmse{ss}(mm) = NMSE(estimatedSignal{ss}(:,mm) ./ ...
+        %     max(estimatedSignal{ss}(:,mm)), ...
+        %     referenceAligned(1:signalLen) ./...
+        %     max(referenceAligned(1:signalLen)));
     end
 end

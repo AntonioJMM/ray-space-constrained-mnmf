@@ -63,7 +63,8 @@ I = size(psi, 1);        % Number of Ray space data points
 
 invPsi = zeros(size(psi,2),size(psi,1),fLen);
 for ff = 2:fLen
-    invPsi(:,:,ff) = regularizedinversematrix(psi(:,:,ff), tik);
+    ii = ceil(ff/87);
+    invPsi(:,:,ff) = regularizedinversematrix(psi(:,:,ff), tik(ii));
 end
 
 % Ray-Space-transformed data
