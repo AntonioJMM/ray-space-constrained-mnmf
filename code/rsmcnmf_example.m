@@ -61,7 +61,12 @@ sigma = 8*d;                                        % Gaussian window standard d
 mu = ((0:mubar:(D-1)*mubar)-((D-1)/2*mubar))';      % [D,1] mu axis
 nu = (0:nubar:micPos(2,end))';                      % [L,1] nu axis
 t = 1:nMic;
+<<<<<<< Updated upstream
 tik = [6 10 7];                                     % Regularization parameter for the psiTilde
+=======
+tik = [6 10 7];                                          % Regularization parameter for the psiTilde
+% load('tik.mat');
+>>>>>>> Stashed changes
 
 % =========================================================================
 % MNMF parameters
