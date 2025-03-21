@@ -60,8 +60,6 @@ mu = ((0:mubar:(D-1)*mubar)-((D-1)/2*mubar))';          % [D,1] mu axis
 nu = (0:nubar:micPos(2,end))';                        % [L,1] nu axis
 t = 1:nMic;
 
-
-
 figure
 scatter3(array.pos(1,:), array.pos(2,:), array.pos(3,:), 'filled')
 hold on
@@ -71,13 +69,6 @@ text(gridPts(1,:)+0.01, gridPts(2,:)+0.01, ...
 xlabel('x'), ylabel('y'), zlabel('z')
 axis equal, view(2);
 title('Setup');
-
-
-
-
-
-
-
 
 % *******************************************************
 %% RST computation
@@ -97,10 +88,6 @@ for ss = 1:length(gridPts)
     % RST computation --> [greenFRaySpace] = [mybins, IxD, gridPts]
     greenFRaySpace(:,:,ss) = squeeze(spatialfilter(permute(greenF(ss, :,:), [2,1,3]), psi,false));
 end
-
-
-
-
 
 % *******************************************************
 %% VIEW examples

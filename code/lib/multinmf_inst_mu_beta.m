@@ -56,10 +56,7 @@ end
 [F,N,n_c] = size(V);
 n_s = size(Q,2);
 lambda = 16;
-<<<<<<< Updated upstream
 % lambda = 0;
-=======
->>>>>>> Stashed changes
 
 W = reshape(W,F,size(W,2)/n_s,n_s);
 H = permute(reshape(H',N,size(H,1)/n_s,n_s),[2 1 3]);
